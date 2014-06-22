@@ -1,0 +1,113 @@
+Machine Learning Course Project
+========================================================
+
+### Data preparation
+I clean pml-training data set from variables that include null or empty values.
+From 160 variables at the beginning I obtain 59 variables.
+### First Model
+I buil first model using classification tree from rpart method
+I get decision tree:
+```{r}
+library(rattle)
+library(caret)
+dane_treningowe<-read.csv("pml-training.csv")
+
+
+dane2<-data.frame(X=dane_treningowe$X)
+nazwy<-c(rep(NA,160))
+
+for(i in 2:160){
+ if (sum(is.na(dane_treningowe[,i]))==0){ dane2<-data.frame(dane2,dane_treningowe[,i])
+ nazwy[i]<-colnames(dane_treningowe)[i]
+ 
+ 
+ 
+ 
+ }}
+nazwy<-c("x",na.omit(nazwy))
+colnames(dane2)<-nazwy
+dane2<-dane2[,-1]
+dane3<-data.frame(rep(NA,19622))
+nazwy2<-c(rep(NA,92))
+for(i in 1:92){
+  if (sum(dane2[,i]=="")==0){ dane3<-data.frame(dane3,dane2[,i])
+                                           nazwy2[i]<-colnames(dane2)[i]
+  }}
+dane3<-dane3[,-1]
+
+nazwy2<-na.omit(nazwy2)
+colnames(dane3)<-nazwy2
+
+modFit <- train(classe ~ .,method="rpart",data=dane3)
+fancyRpartPlot(modFit$finalModel,cex=.5)
+
+```
+*There were 5 variable that where choosen by model: roll_belt,pitch_forearm,cvtd_timestamp,magnet_dumbbell_z,raw_timestamp_part_1
+
+*Model didn't get good results
+```{r}
+modFit
+pred<-predict(modFit,newdata=dane3)
+confusionMatrix(pred, dane3$classe)
+
+```
+*Model didn't predict correctly any observation from class D
+*It predicts 0 observation from class D 
+*Model Accuracy is 0.56 and I expect that can be much better
+#### Second Model
+In order to find better model I try making random forest to predict classe corectly.
+I cut training data set to variables that were included in tree described above.
+*Unfortunetly Random Forest on those smaller data set were too much memory consuming that I need to 
+cut it more. I sample 1000 observation from data and make on them random forest model.
+
+*I change class to numeric for variable cvtd_timestamp
+
+```{r}
+dane4<-data.frame(classe=dane3$classe,roll_belt=dane3$roll_belt,pitch_forearm=dane3$pitch_forearm,
+                  cvtd_timestamp=as.numeric(as.POSIXct(dane3$cvtd_timestamp,format="%d/%m/%Y")),magnet_dumbbell_z=dane3$magnet_dumbbell_z,
+                  raw_timestamp_part_1=dane3$raw_timestamp_part_1)
+
+dane4$rzad<-1:19622
+
+dane5<-dane4[sample(dane4$rzad,1000),]
+dane5<-dane5[,-7]
+
+modFit2 <- train(classe~.,data=dane5,method="rf",prox=TRUE)
+
+
+```
+Now I get really good results for whole training data set
+```{r}
+pred2 <- predict(modFit2,dane4); 
+confusionMatrix(pred2, dane4$classe)
+
+importance(modFit2$finalModel)
+varImpPlot(modFit2$finalModel)
+
+```
+*MeanDecreaseGini is higher for more important variable
+*Two most important variable for model are: raw_timestamp_part_1 and roll_belt
+
+```{r}
+require(ggplot2)
+
+ggplot(data=dane4,aes(x=magnet_dumbbell_z ,y=roll_belt,group=classe,colour=classe))+geom_point()
+
+```
+###Prediction for testing data set
+Predicion for testing data set are presented in data frame
+```{r}
+dane_testowe<-read.csv("pml-testing.csv")
+dane_testowe$cvtd_timestamp<-as.numeric(as.POSIXct(dane_testowe$cvtd_timestamp,format="%d/%m/%Y"))
+pred2 <- predict(modFit2,dane_testowe)
+data.frame(dane_testowe$problem_id,pred2)
+
+```
+
+
+
+
+
+
+ 
+
